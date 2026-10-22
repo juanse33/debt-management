@@ -558,7 +558,10 @@ function renderDeudasPorGasto(deudas) {
       <div class="divide-y divide-gray-100">
         ${grupo.items.map(d => `
           <div class="px-4 py-2 flex items-center justify-between gap-2 text-sm">
-            <span><b>${d.de}</b> le debe a <b>${d.para}</b></span>
+            <div>
+              <span><b>${d.de}</b> le debe a <b>${d.para}</b></span>
+              ${d.cuotas > 1 ? `<p class="text-xs text-gray-500">${formatInCurrentCurrency(d.montoCuotaCOP)} / cuota × ${d.cuotas} cuotas</p>` : ''}
+            </div>
             <span class="font-semibold shrink-0">${formatInCurrentCurrency(d.montoCOP)}</span>
           </div>`).join('')}
       </div>

@@ -364,14 +364,18 @@ function computeResumen(gastos, viajeros, config, calendarioGeneral) {
 }
 
 // Deuda de cada gasto, individual y sin netear contra otros gastos:
-// cada participante (menos quien pagó) le debe su parte exacta al pagador.
+// cada participante (menos quien pagó) le debe su parte exacta al pagador,
+// desglosada también por cuota según las cuotas de ese gasto.
 function computeDeudasPorGasto(gastos) {
   const detalle = [];
   gastos.forEach(g => {
     const n = g.participantes.length;
     if (n === 0) return;
+    const cuotas = g.cuotas || 1;
     const shareCOP = round2(g.montoCOP / n);
     const shareUSD = round2(g.montoUSD / n);
+    const cuotaCOP = round2(shareCOP / cuotas);
+    const cuotaUSD = round2(shareUSD / cuotas);
     g.participantes.forEach(nombre => {
       if (nombre === g.pago) return;
       detalle.push({
@@ -380,7 +384,10 @@ function computeDeudasPorGasto(gastos) {
         de: nombre,
         para: g.pago,
         montoCOP: shareCOP,
-        montoUSD: shareUSD
+        montoUSD: shareUSD,
+        cuotas: cuotas,
+        montoCuotaCOP: cuotaCOP,
+        montoCuotaUSD: cuotaUSD
       });
     });
   });
