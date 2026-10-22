@@ -38,6 +38,17 @@ const VIAJEROS_SEED = [
   'Yeimy', 'Juan José', 'Santiago', 'Stefanny'
 ];
 
+// ID del Google Sheet que sirve de base de datos. Solo se usa si este script
+// corre como proyecto independiente (no vinculado al Sheet); si lo pegaste
+// dentro de Extensiones > Apps Script del propio Sheet, se ignora y se usa
+// ese Sheet directamente.
+const SPREADSHEET_ID = '1s6erboPxfc-WGpf-xlYKRXOCnbL6C-1auUEkJYpRidk';
+
+function getSpreadsheet() {
+  const active = SpreadsheetApp.getActiveSpreadsheet();
+  return active || SpreadsheetApp.openById(SPREADSHEET_ID);
+}
+
 // ---------- Puntos de entrada del Web App ----------
 
 function doGet(e) {
@@ -84,7 +95,7 @@ function jsonResponse(obj) {
 // ---------- Construcción del payload consolidado ----------
 
 function buildPayload() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const viajeros = readViajeros(ss);
   const config = readConfig(ss);
   const gastos = readGastos(ss);
@@ -164,7 +175,7 @@ function readConfig(ss) {
 }
 
 function updateConfig(payload) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const sheet = getSheet(ss, SHEETS.CONFIG);
   const data = sheet.getDataRange().getValues();
   const clave = payload.clave;
@@ -226,7 +237,7 @@ function addGasto(p) {
   if (!p.pago) throw new Error('El gasto necesita indicar quién pagó.');
   if (!p.participantes || !p.participantes.length) throw new Error('El gasto necesita al menos un participante.');
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const sheet = getSheet(ss, SHEETS.GASTOS);
   const headers = sheet.getDataRange().getValues()[0];
   const participantCols = headers.slice(GASTOS_FIXED_COLS.length);
@@ -272,7 +283,7 @@ function readPendientes(ss) {
 
 function togglePendiente(p) {
   if (!p.id) throw new Error('Falta el id del pendiente.');
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const sheet = getSheet(ss, SHEETS.PENDIENTES);
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
@@ -444,7 +455,7 @@ function onOpen() {
 }
 
 function setupSheets() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
 
   ensureSheet(ss, SHEETS.VIAJEROS, ['NombreCorto', 'NombreCompleto', 'FechaNacimiento', 'Documento']);
   ensureSheet(ss, SHEETS.CONFIG, ['Clave', 'Valor']);
