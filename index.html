@@ -120,7 +120,14 @@
 
     <div>
       <h2 class="font-bold text-lg mb-2 flex items-center gap-1.5"><i data-lucide="shuffle" class="w-4 h-4 text-brasil-green"></i>Saldar cuentas</h2>
+      <p class="text-xs text-gray-500 -mt-1.5 mb-2">Neto consolidado: la lista mínima de transferencias para que el grupo quede en ceros.</p>
       <div id="lista-saldar" class="space-y-2"></div>
+    </div>
+
+    <div>
+      <h2 class="font-bold text-lg mb-2 flex items-center gap-1.5"><i data-lucide="list-tree" class="w-4 h-4 text-brasil-green"></i>Detalle por gasto</h2>
+      <p class="text-xs text-gray-500 -mt-1.5 mb-2">Cada deuda por separado, gasto por gasto, sin netear contra otras.</p>
+      <div id="lista-deudas-gasto" class="space-y-3"></div>
     </div>
 
   </section>
@@ -526,7 +533,36 @@ function renderResumen() {
         <span><b>${t.de}</b> le paga a <b>${t.para}</b> ${formatInCurrentCurrency(t.monto)}</span>
       </div>`).join('');
   }
+
+  renderDeudasPorGasto(r.deudasPorGasto || []);
   refreshIcons();
+}
+
+function renderDeudasPorGasto(deudas) {
+  const cont = document.getElementById('lista-deudas-gasto');
+  if (!deudas.length) {
+    cont.innerHTML = '<p class="text-sm text-gray-500">Sin deudas individuales todavía.</p>';
+    return;
+  }
+
+  const porGasto = {};
+  deudas.forEach(d => {
+    (porGasto[d.gastoId] = porGasto[d.gastoId] || { concepto: d.concepto, items: [] }).items.push(d);
+  });
+
+  cont.innerHTML = Object.values(porGasto).map(grupo => `
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="bg-brasil-blue/5 px-4 py-2">
+        <h3 class="font-semibold text-brasil-blue text-sm">${grupo.concepto}</h3>
+      </div>
+      <div class="divide-y divide-gray-100">
+        ${grupo.items.map(d => `
+          <div class="px-4 py-2 flex items-center justify-between gap-2 text-sm">
+            <span><b>${d.de}</b> le debe a <b>${d.para}</b></span>
+            <span class="font-semibold shrink-0">${formatInCurrentCurrency(d.montoCOP)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
 }
 
 // ---------- Gestión de Gastos ----------

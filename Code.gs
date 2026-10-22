@@ -358,8 +358,33 @@ function computeResumen(gastos, viajeros, config, calendarioGeneral) {
     promedioUSD: round2(totalCOP / numPersonas / trm),
     proximoVencimiento: proximoVencimiento,
     porViajero: porViajeroArr,
-    saldar: computeSaldar(porViajeroArr)
+    saldar: computeSaldar(porViajeroArr),
+    deudasPorGasto: computeDeudasPorGasto(gastos)
   };
+}
+
+// Deuda de cada gasto, individual y sin netear contra otros gastos:
+// cada participante (menos quien pagó) le debe su parte exacta al pagador.
+function computeDeudasPorGasto(gastos) {
+  const detalle = [];
+  gastos.forEach(g => {
+    const n = g.participantes.length;
+    if (n === 0) return;
+    const shareCOP = round2(g.montoCOP / n);
+    const shareUSD = round2(g.montoUSD / n);
+    g.participantes.forEach(nombre => {
+      if (nombre === g.pago) return;
+      detalle.push({
+        gastoId: g.id,
+        concepto: g.concepto,
+        de: nombre,
+        para: g.pago,
+        montoCOP: shareCOP,
+        montoUSD: shareUSD
+      });
+    });
+  });
+  return detalle;
 }
 
 function computeSaldar(porViajeroArr) {
