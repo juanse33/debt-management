@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brasil 2027</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          brasil: {
+            green: '#009739',
+            greendark: '#006633',
+            yellow: '#FFDF00',
+            blue: '#002776'
+          }
+        }
+      }
+    }
+  };
+</script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+  body { -webkit-tap-highlight-color: transparent; }
+  .tab-btn {
+    display: flex; align-items: center; gap: 0.375rem;
+    padding: 0.6rem 0.9rem; font-size: 0.875rem; font-weight: 600;
+    color: rgba(255,255,255,0.65); border-bottom: 3px solid transparent;
+    white-space: nowrap; transition: color .15s, border-color .15s;
+    background: none; cursor: pointer;
+  }
+  .tab-btn:hover { color: #fff; }
+  .tab-active { color: #fff !important; border-bottom-color: #FFDF00 !important; }
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  input, select { outline: none; }
+  input:focus, select:focus { box-shadow: 0 0 0 2px #009739; border-color: #009739; }
+</style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+<div id="config-banner" class="hidden bg-yellow-100 border-b border-yellow-300 text-yellow-800 text-sm px-4 py-2 text-center">
+  ⚠️ Falta configurar la URL del Web App: edita la constante <code>CONFIG.SCRIPT_URL</code> dentro del
+  <code>&lt;script&gt;</code> al final de este archivo con la URL que te dio Google Apps Script.
+</div>
+
+<header class="bg-brasil-blue text-white sticky top-0 z-30 shadow-md">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <div>
+      <h1 class="text-lg sm:text-xl font-bold flex items-center gap-2">
+        <i data-lucide="plane" class="w-5 h-5 text-brasil-yellow"></i>
+        Brasil 2027
+      </h1>
+      <p class="text-xs text-white/60 hidden sm:block">Bogotá → São Paulo → Río de Janeiro</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="loadData()" title="Actualizar datos" class="p-2 rounded-full hover:bg-white/10">
+        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+      </button>
+      <div class="hidden sm:flex items-center gap-1 text-xs bg-white/10 px-2 py-1.5 rounded-full">
+        <i data-lucide="repeat" class="w-3 h-3"></i>
+        <span>TRM</span>
+        <span id="trm-display" class="font-semibold">—</span>
+      </div>
+      <div class="flex bg-white/10 rounded-full p-0.5">
+        <button id="btn-cur-cop" class="px-3 py-1 text-xs font-semibold rounded-full transition" onclick="setCurrency('COP')">COP</button>
+        <button id="btn-cur-usd" class="px-3 py-1 text-xs font-semibold rounded-full transition" onclick="setCurrency('USD')">USD</button>
+      </div>
+    </div>
+  </div>
+  <nav class="max-w-6xl mx-auto px-2 flex gap-1 overflow-x-auto">
+    <button class="tab-btn" data-tab="resumen"><i data-lucide="pie-chart" class="w-4 h-4"></i>Resumen &amp; Saldos</button>
+    <button class="tab-btn" data-tab="gastos"><i data-lucide="receipt" class="w-4 h-4"></i>Gastos</button>
+    <button class="tab-btn" data-tab="cuotas"><i data-lucide="calendar-clock" class="w-4 h-4"></i>Cuotas &amp; Calendario</button>
+    <button class="tab-btn" data-tab="logistica"><i data-lucide="map" class="w-4 h-4"></i>Logística</button>
+  </nav>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 pb-20">
+
+  <!-- ===================== TAB: RESUMEN & SALDOS ===================== -->
+  <section id="panel-resumen" class="tab-panel space-y-6">
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="wallet" class="w-3.5 h-3.5"></i>Total gastado</p>
+        <p id="kpi-total" class="text-2xl font-bold text-brasil-blue mt-1">—</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i>Promedio por persona</p>
+        <p id="kpi-promedio" class="text-2xl font-bold text-brasil-blue mt-1">—</p>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <p class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="alarm-clock" class="w-3.5 h-3.5"></i>Próximo vencimiento</p>
+        <p id="kpi-proximo" class="text-2xl font-bold text-brasil-blue mt-1">—</p>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <p class="font-semibold flex items-center gap-1.5"><i data-lucide="repeat" class="w-4 h-4 text-brasil-green"></i>TRM de referencia</p>
+          <p class="text-xs text-gray-500">Se usa para mostrar los totales convertidos entre COP y USD.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="input-trm" type="number" step="1" min="0" class="w-32 border border-gray-200 rounded-lg px-3 py-1.5 text-sm">
+          <button onclick="saveTrm()" class="bg-brasil-green text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-brasil-greendark">Actualizar</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h2 class="font-bold text-lg mb-2 flex items-center gap-1.5"><i data-lucide="user-check" class="w-4 h-4 text-brasil-green"></i>Estado por viajero</h2>
+      <div id="tabla-viajeros" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+    </div>
+
+    <div>
+      <h2 class="font-bold text-lg mb-2 flex items-center gap-1.5"><i data-lucide="shuffle" class="w-4 h-4 text-brasil-green"></i>Saldar cuentas</h2>
+      <div id="lista-saldar" class="space-y-2"></div>
+    </div>
+
+  </section>
+
+  <!-- ===================== TAB: GESTIÓN DE GASTOS ===================== -->
+  <section id="panel-gastos" class="tab-panel hidden space-y-4">
+
+    <div class="flex flex-wrap items-center gap-2">
+      <input id="buscar-gasto" type="text" placeholder="Buscar por concepto..." oninput="renderGastos()"
+             class="flex-1 min-w-[160px] border border-gray-200 rounded-lg px-3 py-2 text-sm">
+      <select id="filtro-moneda" onchange="renderGastos()" class="border border-gray-200 rounded-lg px-2 py-2 text-sm">
+        <option value="">Moneda</option>
+        <option value="COP">COP</option>
+        <option value="USD">USD</option>
+      </select>
+      <select id="filtro-categoria" onchange="renderGastos()" class="border border-gray-200 rounded-lg px-2 py-2 text-sm"></select>
+      <select id="filtro-pagador" onchange="renderGastos()" class="border border-gray-200 rounded-lg px-2 py-2 text-sm"></select>
+      <button onclick="openModalGasto()" class="bg-brasil-green text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-brasil-greendark flex items-center gap-1.5">
+        <i data-lucide="plus" class="w-4 h-4"></i>Nuevo gasto
+      </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="border-b border-gray-200 text-xs text-gray-500 uppercase">
+            <th class="py-2 px-3">Fecha</th>
+            <th class="py-2 px-3">Concepto</th>
+            <th class="py-2 px-3">Categoría</th>
+            <th class="py-2 px-3">Monto</th>
+            <th class="py-2 px-3">Pagó</th>
+            <th class="py-2 px-3">Cuotas</th>
+            <th class="py-2 px-3">Participantes</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-gastos-body"></tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <!-- ===================== TAB: CUOTAS & CALENDARIO ===================== -->
+  <section id="panel-cuotas" class="tab-panel hidden space-y-4">
+
+    <div class="flex items-center gap-2">
+      <label class="text-sm font-medium text-gray-600">Ver cuotas de:</label>
+      <select id="filtro-viajero-cuotas" onchange="renderCuotas()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm"></select>
+    </div>
+
+    <div id="lista-cuotas" class="space-y-4"></div>
+
+  </section>
+
+  <!-- ===================== TAB: LOGÍSTICA ===================== -->
+  <section id="panel-logistica" class="tab-panel hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div>
+        <h2 class="font-bold text-lg mb-2 flex items-center gap-1.5"><i data-lucide="list-checks" class="w-4 h-4 text-brasil-green"></i>Pendientes</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <ul id="lista-pendientes" class="divide-y divide-gray-100"></ul>
+        </div>
+      </div>
+
+      <div>
+        <h2 class="font-bold text-lg mb-2 flex items-center gap-1.5"><i data-lucide="calendar-days" class="w-4 h-4 text-brasil-green"></i>Itinerario</h2>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+          <div id="lista-itinerario"></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== MODAL: NUEVO GASTO ===================== -->
+<div id="modal-gasto" class="hidden fixed inset-0 bg-black/50 z-40 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="p-5 border-b flex items-center justify-between sticky top-0 bg-white">
+      <h2 class="font-bold text-lg">Registrar nuevo gasto</h2>
+      <button type="button" onclick="closeModalGasto()" class="p-1 rounded-full hover:bg-gray-100"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <form id="form-gasto" class="p-5 space-y-4" onsubmit="submitGasto(event)">
+
+      <div>
+        <label class="text-sm font-medium text-gray-600">Concepto</label>
+        <input id="input-gasto-concepto" type="text" required class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm font-medium text-gray-600">Moneda</label>
+          <select id="select-gasto-moneda" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+            <option value="COP">COP</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-600">Monto</label>
+          <input id="input-gasto-monto" type="number" step="0.01" min="0" required class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+        </div>
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-gray-600">TRM aplicada</label>
+        <input id="input-gasto-trm" type="number" step="0.01" min="0" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+        <p class="text-xs text-gray-400 mt-1">Se usa para calcular el equivalente en la otra moneda.</p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm font-medium text-gray-600">Categoría</label>
+          <select id="select-gasto-categoria" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1"></select>
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-600">Fecha</label>
+          <input id="input-gasto-fecha" type="date" required class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+        </div>
+      </div>
+
+      <div>
+        <label class="text-sm font-medium text-gray-600">¿Quién pagó?</label>
+        <select id="select-gasto-pago" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1"></select>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between">
+          <label class="text-sm font-medium text-gray-600">Participantes</label>
+          <button type="button" onclick="toggleTodosParticipantes()" class="text-xs font-semibold text-brasil-green hover:underline">Seleccionar todos</button>
+        </div>
+        <div id="checks-participantes" class="grid grid-cols-2 gap-2 mt-1"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="text-sm font-medium text-gray-600">Cuotas</label>
+          <input id="input-gasto-cuotas" type="number" min="1" step="1" value="1" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-600">1er pago</label>
+          <input id="input-gasto-fecha-primer-pago" type="date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+        </div>
+        <div>
+          <label class="text-sm font-medium text-gray-600">Día de pago</label>
+          <input id="input-gasto-dia-pago" type="number" min="1" max="31" placeholder="1-31" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeModalGasto()" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-semibold">Cancelar</button>
+        <button type="submit" id="btn-guardar-gasto" class="px-4 py-2 rounded-lg bg-brasil-green text-white text-sm font-semibold hover:bg-brasil-greendark">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== LOADING & TOASTS ===================== -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+  <div class="flex flex-col items-center gap-2">
+    <div class="w-10 h-10 border-4 border-brasil-green border-t-transparent rounded-full animate-spin"></div>
+    <p class="text-sm text-gray-600">Cargando...</p>
+  </div>
+</div>
+
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end"></div>
+
+<script>
+// =====================================================================
+// CONFIGURACIÓN — reemplaza esta URL con la de tu Web App publicada
+// =====================================================================
+const CONFIG = {
+  SCRIPT_URL: 'PEGA_AQUI_LA_URL_DE_TU_WEB_APP'
+};
+
+const CATEGORIA_ICONOS = {
+  Vuelos: 'plane', Hospedaje: 'bed', Transporte: 'bus', Comida: 'utensils',
+  Tomorrowland: 'music', Actividades: 'map-pin', Otros: 'package'
+};
+
+let STATE = null;
+let currentCurrency = 'COP';
+
+// ---------- Utilidades ----------
+
+function formatMoney(value, currency) {
+  const n = Number(value) || 0;
+  if (currency === 'USD') {
+    return 'US$ ' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return '$ ' + Math.round(n).toLocaleString('es-CO') + ' COP';
+}
+
+function toCurrentCurrency(montoCOP) {
+  if (currentCurrency === 'USD') {
+    const trm = (STATE && STATE.config && STATE.config.TRM_REFERENCIA) || 4000;
+    return montoCOP / trm;
+  }
+  return montoCOP;
+}
+
+function formatInCurrentCurrency(montoCOP) {
+  return formatMoney(toCurrentCurrency(montoCOP), currentCurrency);
+}
+
+function formatDateHuman(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = String(iso).split('-');
+  if (!y || !m || !d) return iso;
+  const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  return d + ' ' + meses[Number(m) - 1] + ' ' + y;
+}
+
+function refreshIcons() {
+  if (window.lucide) lucide.createIcons();
+}
+
+function showToast(message, type) {
+  const container = document.getElementById('toast-container');
+  const colors = { success: 'bg-brasil-green', error: 'bg-red-600', info: 'bg-brasil-blue' };
+  const el = document.createElement('div');
+  el.className = 'text-white px-4 py-3 rounded-lg shadow-lg text-sm max-w-xs ' + (colors[type] || colors.success);
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function setLoading(isLoading) {
+  document.getElementById('loading-overlay').classList.toggle('hidden', !isLoading);
+}
+
+// ---------- API (Google Apps Script Web App) ----------
+
+async function apiGet() {
+  const res = await fetch(CONFIG.SCRIPT_URL);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// Importante: NO fijamos Content-Type manualmente. Al mandar un string como
+// body, fetch usa "text/plain" por defecto, lo que evita el preflight CORS
+// que Apps Script no sabe responder. El backend igual parsea el JSON.
+async function apiPost(action, payload) {
+  const res = await fetch(CONFIG.SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: action, payload: payload })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function loadData() {
+  if (CONFIG.SCRIPT_URL.indexOf('PEGA_AQUI') !== -1) {
+    document.getElementById('config-banner').classList.remove('hidden');
+    return;
+  }
+  setLoading(true);
+  try {
+    const data = await apiGet();
+    if (data.error) throw new Error(data.error);
+    STATE = data;
+    renderAll();
+  } catch (err) {
+    showToast('Error cargando datos: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ---------- Tabs ----------
+
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById('panel-' + tab).classList.remove('hidden');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('tab-active', b.dataset.tab === tab));
+}
+
+// ---------- Toggle de moneda ----------
+
+function setCurrency(cur) {
+  currentCurrency = cur;
+  const cop = document.getElementById('btn-cur-cop');
+  const usd = document.getElementById('btn-cur-usd');
+  cop.classList.toggle('bg-brasil-yellow', cur === 'COP');
+  cop.classList.toggle('text-brasil-blue', cur === 'COP');
+  usd.classList.toggle('bg-brasil-yellow', cur === 'USD');
+  usd.classList.toggle('text-brasil-blue', cur === 'USD');
+  if (STATE) {
+    renderResumen();
+    renderCuotas();
+  }
+}
+
+// ---------- Render general ----------
+
+function renderAll() {
+  document.getElementById('config-banner').classList.add('hidden');
+  document.getElementById('trm-display').textContent = (STATE.config.TRM_REFERENCIA || 0).toLocaleString('es-CO');
+  document.getElementById('input-trm').value = STATE.config.TRM_REFERENCIA || '';
+  populateSelectsEstaticos();
+  renderResumen();
+  renderGastos();
+  renderCuotas();
+  renderLogistica();
+  refreshIcons();
+}
+
+function populateSelectsEstaticos() {
+  const nombres = STATE.viajeros.map(v => v.nombreCorto);
+  const categorias = STATE.categorias;
+
+  fillSelect('filtro-pagador', nombres, 'Todos los que pagaron');
+  fillSelect('filtro-categoria', categorias, 'Todas las categorías');
+  fillSelect('select-gasto-pago', nombres);
+  fillSelect('select-gasto-categoria', categorias);
+  fillSelect('filtro-viajero-cuotas', ['todos'].concat(nombres), null, { todos: 'Todos (vista general)' });
+
+  const checksCont = document.getElementById('checks-participantes');
+  checksCont.innerHTML = nombres.map(n => `
+    <label class="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-3 py-2 cursor-pointer">
+      <input type="checkbox" value="${n}" class="check-participante accent-emerald-600">
+      ${n}
+    </label>`).join('');
+}
+
+function fillSelect(id, options, placeholder, labels) {
+  const sel = document.getElementById(id);
+  const prev = sel.value;
+  sel.innerHTML = '';
+  if (placeholder) {
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = placeholder;
+    sel.appendChild(opt);
+  }
+  options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o;
+    opt.textContent = (labels && labels[o]) || o;
+    sel.appendChild(opt);
+  });
+  if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+}
+
+// ---------- Resumen & Saldos ----------
+
+async function saveTrm() {
+  const valor = Number(document.getElementById('input-trm').value);
+  if (!valor || valor <= 0) {
+    showToast('Ingresa una TRM válida.', 'error');
+    return;
+  }
+  setLoading(true);
+  try {
+    const data = await apiPost('updateConfig', { clave: 'TRM_REFERENCIA', valor: valor });
+    if (data.error) throw new Error(data.error);
+    STATE = data;
+    renderAll();
+    showToast('TRM actualizada.');
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderResumen() {
+  const r = STATE.resumen;
+  document.getElementById('kpi-total').textContent = formatInCurrentCurrency(r.totalCOP);
+  document.getElementById('kpi-promedio').textContent = formatInCurrentCurrency(r.promedioCOP);
+  document.getElementById('kpi-proximo').textContent = r.proximoVencimiento ? formatDateHuman(r.proximoVencimiento) : 'Sin pendientes';
+
+  const cont = document.getElementById('tabla-viajeros');
+  cont.innerHTML = r.porViajero.map(v => {
+    const esPositivo = v.saldo >= 0;
+    const badgeClass = esPositivo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
+    return `
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center justify-between gap-3">
+        <div>
+          <p class="font-semibold">${v.nombreCorto}</p>
+          <p class="text-xs text-gray-500">Pagó ${formatInCurrentCurrency(v.pago)} · Le tocaba ${formatInCurrentCurrency(v.leTocaba)}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <span class="inline-block px-3 py-1 rounded-full text-xs font-bold ${badgeClass}">${v.estado}</span>
+          <p class="font-bold mt-1 ${esPositivo ? 'text-green-700' : 'text-red-700'}">${formatInCurrentCurrency(Math.abs(v.saldo))}</p>
+        </div>
+      </div>`;
+  }).join('') || '<p class="text-sm text-gray-500 col-span-2">Sin viajeros registrados.</p>';
+
+  const saldarCont = document.getElementById('lista-saldar');
+  if (!r.saldar.length) {
+    saldarCont.innerHTML = '<p class="text-sm text-gray-500">¡Todos están en ceros! 🎉</p>';
+  } else {
+    saldarCont.innerHTML = r.saldar.map(t => `
+      <div class="flex items-center gap-2 bg-brasil-yellow/10 border border-brasil-yellow/50 rounded-lg px-3 py-2 text-sm">
+        <i data-lucide="arrow-right" class="w-4 h-4 text-brasil-green shrink-0"></i>
+        <span><b>${t.de}</b> le paga a <b>${t.para}</b> ${formatInCurrentCurrency(t.monto)}</span>
+      </div>`).join('');
+  }
+  refreshIcons();
+}
+
+// ---------- Gestión de Gastos ----------
+
+function renderGastos() {
+  if (!STATE) return;
+  const tbody = document.getElementById('tabla-gastos-body');
+  const q = (document.getElementById('buscar-gasto').value || '').toLowerCase();
+  const moneda = document.getElementById('filtro-moneda').value;
+  const categoria = document.getElementById('filtro-categoria').value;
+  const pagador = document.getElementById('filtro-pagador').value;
+
+  const gastos = (STATE.gastos || []).filter(g => {
+    if (q && !(g.concepto || '').toLowerCase().includes(q)) return false;
+    if (moneda && g.moneda !== moneda) return false;
+    if (categoria && g.categoria !== categoria) return false;
+    if (pagador && g.pago !== pagador) return false;
+    return true;
+  }).sort((a, b) => b.fecha.localeCompare(a.fecha));
+
+  tbody.innerHTML = gastos.map(g => `
+    <tr class="border-b border-gray-100 hover:bg-gray-50">
+      <td class="py-2 px-3 text-sm whitespace-nowrap">${formatDateHuman(g.fecha)}</td>
+      <td class="py-2 px-3 text-sm">
+        <div class="flex items-center gap-2">
+          <i data-lucide="${CATEGORIA_ICONOS[g.categoria] || 'package'}" class="w-4 h-4 text-brasil-green shrink-0"></i>
+          <span>${g.concepto}</span>
+        </div>
+      </td>
+      <td class="py-2 px-3 text-sm whitespace-nowrap">${g.categoria}</td>
+      <td class="py-2 px-3 text-sm whitespace-nowrap">
+        ${formatMoney(g.montoCOP, 'COP')}<br>
+        <span class="text-xs text-gray-400">${formatMoney(g.montoUSD, 'USD')}</span>
+      </td>
+      <td class="py-2 px-3 text-sm whitespace-nowrap">${g.pago}</td>
+      <td class="py-2 px-3 text-sm whitespace-nowrap">${g.cuotas > 1 ? g.cuotas + ' cuotas' : 'Contado'}</td>
+      <td class="py-2 px-3 text-sm text-gray-500 whitespace-nowrap">${g.participantes.length} pers.</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="py-6 text-center text-sm text-gray-400">No hay gastos que coincidan con el filtro.</td></tr>';
+
+  refreshIcons();
+}
+
+// ---------- Modal Nuevo Gasto ----------
+
+function openModalGasto() {
+  if (!STATE) {
+    showToast('Todavía no se han cargado los datos. Configura la URL del Web App y actualiza.', 'error');
+    return;
+  }
+  document.getElementById('form-gasto').reset();
+  const hoy = new Date().toISOString().slice(0, 10);
+  document.getElementById('input-gasto-trm').value = STATE.config.TRM_REFERENCIA || '';
+  document.getElementById('input-gasto-fecha').value = hoy;
+  document.getElementById('input-gasto-fecha-primer-pago').value = hoy;
+  document.getElementById('input-gasto-cuotas').value = 1;
+  document.querySelectorAll('.check-participante').forEach(c => c.checked = false);
+  document.getElementById('modal-gasto').classList.remove('hidden');
+  refreshIcons();
+}
+
+function closeModalGasto() {
+  document.getElementById('modal-gasto').classList.add('hidden');
+}
+
+function toggleTodosParticipantes() {
+  const checks = document.querySelectorAll('.check-participante');
+  const todosMarcados = [...checks].every(c => c.checked);
+  checks.forEach(c => c.checked = !todosMarcados);
+}
+
+async function submitGasto(evt) {
+  evt.preventDefault();
+  const participantes = [...document.querySelectorAll('.check-participante:checked')].map(c => c.value);
+  if (!participantes.length) {
+    showToast('Selecciona al menos un participante.', 'error');
+    return;
+  }
+
+  const payload = {
+    concepto: document.getElementById('input-gasto-concepto').value.trim(),
+    moneda: document.getElementById('select-gasto-moneda').value,
+    monto: Number(document.getElementById('input-gasto-monto').value),
+    trm: Number(document.getElementById('input-gasto-trm').value) || 0,
+    categoria: document.getElementById('select-gasto-categoria').value,
+    fecha: document.getElementById('input-gasto-fecha').value,
+    pago: document.getElementById('select-gasto-pago').value,
+    participantes: participantes,
+    cuotas: Number(document.getElementById('input-gasto-cuotas').value) || 1,
+    fechaPrimerPago: document.getElementById('input-gasto-fecha-primer-pago').value,
+    diaPago: document.getElementById('input-gasto-dia-pago').value
+  };
+
+  const btn = document.getElementById('btn-guardar-gasto');
+  btn.disabled = true;
+  try {
+    const data = await apiPost('addGasto', payload);
+    if (data.error) throw new Error(data.error);
+    STATE = data;
+    renderAll();
+    closeModalGasto();
+    showToast('Gasto registrado correctamente.');
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ---------- Cuotas & Calendario ----------
+
+function renderCuotas() {
+  if (!STATE) return;
+  const filtro = document.getElementById('filtro-viajero-cuotas').value || 'todos';
+  const lista = filtro === 'todos' ? STATE.calendario.general : (STATE.calendario.porViajero[filtro] || []);
+
+  const grupos = {};
+  lista.forEach(c => {
+    const mes = c.fecha.slice(0, 7);
+    (grupos[mes] = grupos[mes] || []).push(c);
+  });
+
+  const meses = Object.keys(grupos).sort();
+  const cont = document.getElementById('lista-cuotas');
+
+  if (!meses.length) {
+    cont.innerHTML = '<p class="text-sm text-gray-500">No hay cuotas programadas.</p>';
+    return;
+  }
+
+  const nombresMes = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  cont.innerHTML = meses.map(mes => {
+    const [y, m] = mes.split('-');
+    const totalMes = grupos[mes].reduce((s, c) => s + c.montoCOP, 0);
+    return `
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-brasil-blue/5 px-4 py-2 flex justify-between items-center">
+          <h3 class="font-semibold text-brasil-blue">${nombresMes[Number(m) - 1]} ${y}</h3>
+          <span class="text-sm font-bold">${formatInCurrentCurrency(totalMes)}</span>
+        </div>
+        <div class="divide-y divide-gray-100">
+          ${grupos[mes].map(c => `
+            <div class="px-4 py-2 flex justify-between items-center gap-3 text-sm">
+              <div>
+                <p class="font-medium">${c.concepto}</p>
+                <p class="text-xs text-gray-500">Cuota ${c.numeroCuota}/${c.totalCuotas} · ${formatDateHuman(c.fecha)}${c.participantes ? ' · ' + c.participantes.join(', ') : ''}</p>
+              </div>
+              <span class="font-semibold shrink-0">${formatInCurrentCurrency(c.montoCOP)}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ---------- Logística ----------
+
+function renderLogistica() {
+  if (!STATE) return;
+
+  const pendCont = document.getElementById('lista-pendientes');
+  const pendientes = STATE.pendientes || [];
+  pendCont.innerHTML = pendientes.map(p => {
+    const hecho = p.estado === 'Hecho';
+    return `
+      <li class="flex items-center justify-between gap-2 py-2">
+        <div class="flex items-center gap-2 ${hecho ? 'opacity-50' : ''}">
+          <button onclick="togglePendiente('${p.id}')" class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${hecho ? 'bg-brasil-green border-brasil-green' : 'border-gray-300'}">
+            ${hecho ? '<i data-lucide="check" class="w-3 h-3 text-white"></i>' : ''}
+          </button>
+          <span class="${hecho ? 'line-through' : ''}">${p.tarea}</span>
+        </div>
+        <span class="text-xs text-gray-400 shrink-0">${p.responsable || ''}</span>
+      </li>`;
+  }).join('') || '<li class="text-sm text-gray-500">Sin pendientes registrados.</li>';
+
+  const itiCont = document.getElementById('lista-itinerario');
+  const porDia = {};
+  (STATE.itinerario || []).forEach(a => {
+    const key = a.dia || a.fecha || 'Sin día';
+    (porDia[key] = porDia[key] || []).push(a);
+  });
+  const dias = Object.keys(porDia);
+  itiCont.innerHTML = dias.map(dia => `
+    <div class="mb-4 last:mb-0">
+      <h4 class="font-semibold text-brasil-blue mb-2">${dia}</h4>
+      <div class="space-y-2">
+        ${porDia[dia].map(a => `
+          <div class="flex gap-3 text-sm bg-gray-50 rounded-lg p-3">
+            <span class="font-mono text-xs text-gray-500 w-14 shrink-0">${a.hora || ''}</span>
+            <div>
+              <p class="font-medium">${a.actividad || ''}</p>
+              <p class="text-xs text-gray-500">${a.lugar || ''}${a.notas ? ' · ' + a.notas : ''}</p>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('') || '<p class="text-sm text-gray-500">Sin itinerario cargado.</p>';
+
+  refreshIcons();
+}
+
+async function togglePendiente(id) {
+  setLoading(true);
+  try {
+    const data = await apiPost('togglePendiente', { id: id });
+    if (data.error) throw new Error(data.error);
+    STATE = data;
+    renderLogistica();
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ---------- Inicio ----------
+
+document.addEventListener('DOMContentLoaded', () => {
+  initTabs();
+  switchTab('resumen');
+  setCurrency('COP');
+  refreshIcons();
+  loadData();
+});
+</script>
+
+</body>
+</html>
