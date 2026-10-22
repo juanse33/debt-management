@@ -99,6 +99,7 @@ function buildPayload() {
   const viajeros = readViajeros(ss);
   const config = readConfig(ss);
   const gastos = readGastos(ss);
+  recalcularGastosUSD(gastos, config.TRM_REFERENCIA);
   const pendientes = readPendientes(ss);
   const itinerario = readItinerario(ss);
 
@@ -230,6 +231,20 @@ function readGastos(ss) {
         participantes: participantes
       };
     });
+}
+
+// Los gastos registrados en USD representan una deuda "pura" en dólares:
+// su equivalente en COP no debe quedar fijo al valor de cuando se guardó,
+// sino recalcularse siempre con la TRM de referencia vigente. Los gastos
+// en COP sí quedan fijos (ese fue el monto real que se pagó en pesos).
+function recalcularGastosUSD(gastos, trmReferencia) {
+  const trm = trmReferencia || 4000;
+  gastos.forEach(g => {
+    if (g.moneda === 'USD') {
+      g.trm = trm;
+      g.montoCOP = Math.round(g.monto * trm);
+    }
+  });
 }
 
 function addGasto(p) {
